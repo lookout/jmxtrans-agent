@@ -1,6 +1,5 @@
 package org.jmxtrans.agent;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -13,7 +12,6 @@ import java.util.Map;
 public class StatsDOutputWriterIntegrationTest {
 
     @Test
-    @Ignore
     public void test() throws IOException {
         StatsDOutputWriter writer = new StatsDOutputWriter();
         Map<String, String> settings = new HashMap<String, String>();
@@ -26,6 +24,5 @@ public class StatsDOutputWriterIntegrationTest {
                 writer.writeQueryResult("jmxtrans-agent-test-metric-" + metricIndex, "counter", Integer.valueOf(10 * measureIndex + metricIndex));
             }
         }
-
     }
 }

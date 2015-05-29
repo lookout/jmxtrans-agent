@@ -110,11 +110,14 @@ public class StatsDOutputWriter extends AbstractOutputWriter implements OutputWr
 
     @Override
     public synchronized void writeQueryResult(String metricName, String metricType, Object value) throws IOException {
-        String stats = metricNamePrefix + "." + metricName + ":" + value + "|c\n";
-        if (logger.isLoggable(getDebugLevel())) {
-            logger.log(getDebugLevel(), "Sending msg: " + stats);
+        /** Currently, only write metrics of type Number as Counter */
+        if (value instanceof Number) {
+            String stats = metricNamePrefix + "." + metricName + ":" + value + "|c\n";
+            if (logger.isLoggable(getDebugLevel())) {
+                logger.log(getDebugLevel(), "Sending msg: " + stats);
+            }
+            doSend(stats);
         }
-        doSend(stats);
     }
 
     private synchronized boolean doSend(String stat) {
