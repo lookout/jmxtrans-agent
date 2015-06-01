@@ -120,7 +120,7 @@ public class StatsDOutputWriter extends AbstractOutputWriter implements OutputWr
         }
     }
 
-    private synchronized boolean doSend(String stat) {
+    protected synchronized boolean doSend(String stat) {
         try {
             final byte[] data = stat.getBytes("utf-8");
 
