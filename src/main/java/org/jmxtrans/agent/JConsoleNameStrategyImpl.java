@@ -49,41 +49,62 @@ public class JConsoleNameStrategyImpl implements ResultNameStrategy {
 
     @Nonnull
     @Override
-    public String getResultName(@Nonnull Query query, @Nonnull ObjectName objectName, @Nullable String key, @Nonnull String attribute) {
+    public String getResultName(@Nonnull Query query, @Nonnull ObjectName objectName, @Nullable String key,
+                                @Nonnull String attribute) {
         String result;
         if (query.getResultAlias() == null) {
-            result = escapeObjectName(objectName);
-            if (attribute != null && !attribute.isEmpty()) {
-                result += "." + attribute;
-            }
-            if (key != null && !key.isEmpty()) {
-                result += "." + key;
-            }
+            result = escapeObjectName(objectName, key, attribute);
         } else {
+
+            /** Register an evaluator for attribute */
+            if (query.getResultAlias().contains("#attribute#")) {
+                expressionLanguageEngine.registerExpressionEvaluator("attribute", attribute);
+            }
+
+            /** Register an evaluator for attribute */
+            if (query.getResultAlias().contains("#key#")) {
+                expressionLanguageEngine.registerExpressionEvaluator("key", key);
+            }
+
             result = expressionLanguageEngine.resolveExpression(query.getResultAlias(), objectName);
         }
+
         return result;
     }
+
     /**
      * Transforms an {@linkplain javax.management.ObjectName} into a plain {@linkplain String}
      * only composed of ('a' to 'Z', 'A' to 'Z', '.', '_') similar to JConsole naming
      *
      * '_' is the escape char for not compliant chars.
      */
-    protected String escapeObjectName(@Nonnull ObjectName objectName) {
+    protected String escapeObjectName(@Nonnull ObjectName objectName, @Nullable String key,
+                                      @Nonnull String attribute) {
 
         /** Add objectName's domain */
         StringBuilder result = new StringBuilder();
         StringUtils2.appendEscapedNonAlphaNumericChars(objectName.getDomain(), false, result);
 
         /** Walk through (sorted) properties of the ObjectName and add values to the result */
-        List<String> keys = Collections.list(objectName.getKeyPropertyList().keys());
-        Collections.sort(keys);
-        for (Iterator<String> it = keys.iterator(); it.hasNext(); ) {
+        List<String> propertyKeys = Collections.list(objectName.getKeyPropertyList().keys());
+        Collections.sort(propertyKeys);
+        for (Iterator<String> it = propertyKeys.iterator(); it.hasNext(); ) {
             String propertyKey = it.next();
             result.append('.');
             StringUtils2.appendEscapedNonAlphaNumericChars(objectName.getKeyProperty(propertyKey), false,
                     result);
+        }
+
+        /** Append attribute */
+        if (!StringUtils2.isNullOrEmpty(attribute)) {
+            result.append('.');
+            StringUtils2.appendEscapedNonAlphaNumericChars(attribute, false, result);
+        }
+
+        /** Append key */
+        if (!StringUtils2.isNullOrEmpty(key)) {
+            result.append('.');
+            StringUtils2.appendEscapedNonAlphaNumericChars(key, false, result);
         }
 
         return result.toString();

@@ -27,6 +27,7 @@ import org.jmxtrans.agent.util.StringUtils2;
 import org.jmxtrans.agent.util.logging.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.management.ObjectName;
 import java.net.InetAddress;
 import java.util.HashMap;
@@ -36,6 +37,18 @@ import java.util.logging.Level;
 
 /**
  * @author <a href="mailto:cleclerc@cloudbees.com">Cyrille Le Clerc</a>
+ *
+ * In-built expression evaluators are:
+ *     hostname
+ *     reversed_hostname
+ *     escaped_hostname
+ *     canonical_hostname
+ *     reversed_canonical_hostname
+ *     escaped_canonical_hostname
+ *     hostaddress
+ *     escaped_hostaddress
+ *     attribute
+ *     key
  */
 public class ExpressionLanguageEngineImpl implements ExpressionLanguageEngine {
     protected final Logger logger = Logger.getLogger(getClass().getName());
@@ -76,47 +89,18 @@ public class ExpressionLanguageEngineImpl implements ExpressionLanguageEngine {
      */
     @Nonnull
     public String resolveExpression(@Nonnull String expression) {
-        StringBuilder result = new StringBuilder(expression.length());
-
-        int position = 0;
-        while (position < expression.length()) {
-            char c = expression.charAt(position);
-            if (c == '#') {
-                int beginningSeparatorPosition = position;
-                int endingSeparatorPosition = expression.indexOf('#', beginningSeparatorPosition + 1);
-                if (endingSeparatorPosition == -1) {
-                    throw new IllegalStateException("Invalid expression '" + expression + "', no ending '#' after beginning '#' at position " + beginningSeparatorPosition);
-                }
-                String key = expression.substring(beginningSeparatorPosition + 1, endingSeparatorPosition);
-                Callable<String> expressionProcessor = expressionEvaluators.get(key);
-                String value;
-                if (expressionProcessor == null) {
-                    value = "#unsupported_expression#";
-                    logger.info("Unsupported expression '" + key + "'");
-                } else {
-                    try {
-                        value = expressionProcessor.call();
-                    } catch (Exception e) {
-                        value = "#expression_error#";
-                        logger.log(Level.WARNING, "Error evaluating expression '" + key + "'", e);
-                    }
-                }
-                StringUtils2.appendEscapedNonAlphaNumericChars(value, false, result);
-                position = endingSeparatorPosition + 1;
-
-            } else {
-                result.append(c);
-                position++;
-            }
-        }
-        if (logger.isLoggable(Level.FINEST))
-            logger.log(Level.FINEST, "resolveExpression(" + expression + "): " + result);
-        return result.toString();
-
+        return resolveExpression(expression, null);
     }
 
+    /**
+     * Replace all the '#' based keywords (e.g. <code>#hostname#</code>) by their value.
+     * Replace all the '%' based keywords (e.g. <code>%type%</code>) by their keyProperty in ObjectName.
+     *
+     * @param expression the expression to resolve (e.g. <code>"servers.#hostname#.%name%"</code>)
+     * @return the resolved expression (e.g. <code>"servers.tomcat5.PerFlow"</code>)
+     */
     @Nonnull
-    public String resolveExpression(@Nonnull String expression, @Nonnull ObjectName exactObjectName) {
+    public String resolveExpression(@Nonnull String expression, @Nullable ObjectName exactObjectName) {
 
         StringBuilder result = new StringBuilder(expression.length());
 
@@ -130,7 +114,10 @@ public class ExpressionLanguageEngineImpl implements ExpressionLanguageEngine {
                     throw new IllegalStateException("Invalid expression '" + expression + "', no ending '%' after beginning '%' at position " + beginningSeparatorPosition);
                 }
                 String key = expression.substring(beginningSeparatorPosition + 1, endingSeparatorPosition);
-                String value = exactObjectName.getKeyProperty(key);
+                String value = null;
+                if (exactObjectName != null) {
+                    value = exactObjectName.getKeyProperty(key);
+                }
                 if (value == null) {
                     value = "null";
                 }
@@ -156,6 +143,9 @@ public class ExpressionLanguageEngineImpl implements ExpressionLanguageEngine {
                         logger.log(Level.WARNING, "Error evaluating expression '" + key + "'", e);
                     }
                 }
+                if (value == null) {
+                    value = "null";
+                }
                 StringUtils2.appendEscapedNonAlphaNumericChars(value, false, result);
                 position = endingSeparatorPosition + 1;
 
@@ -172,6 +162,9 @@ public class ExpressionLanguageEngineImpl implements ExpressionLanguageEngine {
 
     /**
      * Registers an expression evaluator with a static value.
+     *
+     * @param expression the expression key to lookup (e.g. <code>"attribute"</code>)
+     * @param evaluator a Callable evaluator that returns String
      */
     public void registerExpressionEvaluator(String expression, Callable<String> evaluator) {
         expressionEvaluators.put(expression, evaluator);
@@ -179,6 +172,9 @@ public class ExpressionLanguageEngineImpl implements ExpressionLanguageEngine {
 
     /**
      * Registers an expression evaluator with a static value.
+     *
+     * @param expression the expression key to lookup (e.g. <code>"attribute"</code>)
+     * @param value that replaces the expression (e.g. <code>"PerFlow"</code>)
      */
     public void registerExpressionEvaluator(String expression, String value) {
         expressionEvaluators.put(expression, new StaticEvaluator(value));

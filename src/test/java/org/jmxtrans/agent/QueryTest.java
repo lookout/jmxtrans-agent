@@ -206,6 +206,16 @@ public class QueryTest {
         assert(actualSize == 24);
     }
 
+    @Test
+    public void query_resultAlias_with_attribute_key_expressions() throws Exception {
+        Query query = new Query("test:type=Mock,name=mock", "CollectionUsageThreshold",
+                "test.%name%.#attribute#.#key#.%type%", jConsoleNameStrategy);
+        query.collectAndExport(mbeanServer, mockOutputWriter);
+        Object actual = mockOutputWriter.resultsByName.get("test.mock.CollectionUsageThreshold.null.Mock");
+        assertThat(actual, notNullValue());
+        assertThat(actual, instanceOf(Number.class));
+    }
+
     public static class MockOutputWriter extends AbstractOutputWriter {
 
         protected final boolean failOnDuplicateResult;
