@@ -82,4 +82,13 @@ public class JConsoleNameStrategyImplTest {
         String actual = strategy.getResultName(query, new ObjectName(objectName), "usage", "count");
         assertThat(actual, is("Katalina:jdbc_my-datasource.Resource"));
     }
+
+
+    @Test
+    public void testGetResultNameWithResultAliasWithNonAlphaNumericChars() throws Exception {
+        Query query = new Query("*:*", "count", null, strategy);
+        String objectName = "Catalina:type=Resource,resourcetype=Context,host=localhost,class=javax.sql.DataSource,name=\"jdbc/my-datasource\"";
+        String actual = strategy.getResultName(query, new ObjectName(objectName), "us age", "co?unt");
+        assertThat(actual, is("Catalina.javax.sql.DataSource.localhost.jdbc_my-datasource.Context.Resource.co_unt.us_age"));
+    }
 }
